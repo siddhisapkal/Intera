@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+neo4j
+python-dotenv
+pydantic
+google-genai
+groq
+redis
+faiss-cpu
+numpy
+httpx
+pypdf
+python-multipart

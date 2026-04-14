@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Intera — Memory Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+:root{--ink:#04090f;--ink2:#07131e;--surface:#0b1929;--surface2:#0f2035;--surface3:#071422;--rim:rgba(96,165,250,.13);--rim2:rgba(96,165,250,.3);--text:#dff0ff;--dim:#6b8fa8;--accent:#3b82f6;--accent2:#60a5fa;--green:#10b981;--amber:#f59e0b;--red:#ef4444;}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--ink);color:var(--text);font-family:'DM Sans',sans-serif;overflow:hidden}
+.orb{position:fixed;border-radius:50%;filter:blur(120px);pointer-events:none;z-index:0;animation:drift 18s ease-in-out infinite alternate}
+.orb1{width:600px;height:600px;background:radial-gradient(circle,rgba(59,130,246,.1),transparent 70%);top:-150px;left:-150px}
+.orb2{width:500px;height:500px;background:radial-gradient(circle,rgba(16,185,129,.07),transparent 70%);bottom:-100px;right:-100px;animation-delay:-7s}
+@keyframes drift{0%{transform:translate(0,0) scale(1)}100%{transform:translate(30px,20px) scale(1.08)}}
+.shell{position:relative;z-index:1;width:100%;height:100vh;display:grid;grid-template-columns:220px 1fr 340px;grid-template-rows:54px 1fr}
+.topbar{grid-column:1/-1;display:flex;align-items:center;gap:14px;padding:0 18px;border-bottom:1px solid var(--rim);background:rgba(7,19,30,.94);backdrop-filter:blur(16px)}
+.logo{display:flex;align-items:center;gap:9px;font-family:'Syne',sans-serif;font-weight:800;font-size:17px;letter-spacing:-.02em}
+.logo-icon{width:30px;height:30px;background:linear-gradient(135deg,#3b82f6,#818cf8);border-radius:9px;display:grid;place-items:center;font-size:15px;box-shadow:0 0 20px rgba(59,130,246,.4)}
+.logo span{color:#60a5fa}
+.topbar-gap{flex:1}
+.nav-tabs{display:flex;gap:2px;margin-left:16px}
+.nav-tab{padding:5px 13px;border-radius:8px;font-size:13px;font-weight:500;color:var(--dim);cursor:pointer;border:none;background:transparent;font-family:inherit;transition:all .18s}
+.nav-tab:hover{color:var(--text);background:rgba(255,255,255,.05)}
+.nav-tab.active{color:#60a5fa;background:rgba(59,130,246,.12)}
+.auth-bar{display:flex;gap:7px;align-items:center}
+.field{border:1px solid var(--rim);background:rgba(11,25,41,.8);color:var(--text);border-radius:9px;padding:6px 10px;font-size:13px;font-family:inherit;outline:none;transition:border-color .2s}
+.field:focus{border-color:var(--rim2)}
+.field::placeholder{color:var(--dim)}
+.btn{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--rim);background:rgba(15,32,53,.9);color:var(--text);border-radius:9px;padding:6px 13px;font-size:13px;font-family:inherit;font-weight:500;cursor:pointer;transition:all .18s;white-space:nowrap}
+.btn:hover{border-color:var(--rim2);background:rgba(59,130,246,.1);transform:translateY(-1px)}
+.btn-primary{background:linear-gradient(135deg,#1d4ed8,#2563eb);border-color:rgba(96,165,250,.35);color:#fff;box-shadow:0 0 18px rgba(37,99,235,.3)}
+.btn-primary:hover{box-shadow:0 0 26px rgba(37,99,235,.5);background:linear-gradient(135deg,#2563eb,#3b82f6)}
+.btn-ghost{background:transparent;border-color:transparent;color:var(--dim)}
+.btn-ghost:hover{color:var(--text);background:rgba(255,255,255,.04);border-color:var(--rim)}
+.btn-danger{border-color:rgba(239,68,68,.2);color:var(--red)}
+.btn-danger:hover{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.4)}
+.user-chip{display:flex;align-items:center;gap:7px;padding:4px 11px 4px 4px;border:1px solid var(--rim);border-radius:999px;background:rgba(11,25,41,.8);font-size:13px}
+.avatar{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#818cf8);display:grid;place-items:center;font-size:10px;font-weight:700;color:#fff}
+.signed-in .show-so{display:none!important}
+.signed-out .show-si{display:none!important}
+/* sidebar */
+.sidebar{grid-row:2;border-right:1px solid var(--rim);background:rgba(7,19,30,.6);display:flex;flex-direction:column;overflow:hidden}
+.sidebar-head{padding:12px 12px 8px;border-bottom:1px solid var(--rim)}
+.sidebar-label{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:8px}
+.new-convo-btn{width:100%;display:flex;align-items:center;gap:7px;padding:8px 10px;border-radius:10px;border:1px dashed rgba(96,165,250,.18);background:transparent;color:var(--dim);cursor:pointer;font-size:12px;font-family:inherit;transition:all .18s}
+.new-convo-btn:hover{border-color:var(--accent);color:#60a5fa;background:rgba(59,130,246,.06)}
+.convo-list{flex:1;overflow-y:auto;padding:8px}
+.convo-list::-webkit-scrollbar{width:3px}
+.convo-list::-webkit-scrollbar-thumb{background:rgba(96,165,250,.15);border-radius:3px}
+.convo-item{padding:9px 10px;border-radius:10px;cursor:pointer;transition:all .15s;margin-bottom:3px;border:1px solid transparent}
+.convo-item:hover{background:rgba(59,130,246,.06);border-color:var(--rim)}
+.convo-item.active{background:rgba(59,130,246,.1);border-color:rgba(59,130,246,.22)}
+.convo-name{font-size:12px;font-weight:500;line-height:1.35;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:175px}
+.convo-preview{font-size:11px;color:var(--dim);margin-top:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:175px}
+/* main */
+.main-area{grid-row:2;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.panel-tabs{display:flex;border-bottom:1px solid var(--rim);padding:0 14px;background:rgba(7,19,30,.4)}
+.panel-tab{padding:11px 14px;font-size:13px;font-weight:500;color:var(--dim);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;margin-bottom:-1px;font-family:inherit;border-top:none;border-left:none;border-right:none;background:transparent}
+.panel-tab:hover{color:var(--text)}
+.panel-tab.active{color:#60a5fa;border-bottom-color:var(--accent)}
+.panel-body{display:none;flex-direction:column;flex:1;overflow:hidden}
+.panel-body.active{display:flex}
+/* chat */
+.msgs{flex:1;overflow-y:auto;padding:18px 18px 10px;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth}
+.msgs::-webkit-scrollbar{width:4px}
+.msgs::-webkit-scrollbar-thumb{background:rgba(96,165,250,.15);border-radius:4px}
+.msg{max-width:min(78%,700px);padding:12px 15px;border-radius:15px;font-size:14px;line-height:1.65;white-space:pre-wrap;animation:fadeUp .22s ease both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.msg.user{margin-left:auto;background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;border-bottom-right-radius:3px;box-shadow:0 4px 20px rgba(37,99,235,.22)}
+.msg.bot{background:var(--surface2);border:1px solid var(--rim);border-bottom-left-radius:3px}
+.msg.bot.thinking{color:var(--dim);font-style:italic;border-style:dashed}
+.msg-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#60a5fa;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.2);border-radius:6px;padding:2px 7px;margin-top:7px}
+.msg-badge.green{color:var(--green);background:rgba(16,185,129,.08);border-color:rgba(16,185,129,.18)}
+.composer{padding:10px 14px 13px;border-top:1px solid var(--rim);background:rgba(7,19,30,.7);display:flex;flex-direction:column;gap:7px}
+.composer-opts{display:flex;gap:10px;align-items:center}
+.toggle{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--dim);cursor:pointer;user-select:none}
+.toggle input{accent-color:var(--accent)}
+.composer-row{display:flex;gap:8px;align-items:flex-end}
+.composer textarea{flex:1;resize:none;min-height:50px;max-height:130px;border:1px solid var(--rim);background:rgba(11,25,41,.8);color:var(--text);border-radius:12px;padding:12px 14px;font:14px/1.5 'DM Sans',sans-serif;outline:none;transition:border-color .2s}
+.composer textarea:focus{border-color:var(--rim2)}
+.composer textarea::placeholder{color:var(--dim)}
+.send-btn{width:46px;height:46px;border-radius:50%;border:none;background:linear-gradient(135deg,#1d4ed8,#3b82f6);color:#fff;cursor:pointer;font-size:16px;display:grid;place-items:center;transition:all .18s;flex-shrink:0;box-shadow:0 0 18px rgba(59,130,246,.3)}
+.send-btn:hover{transform:scale(1.08);box-shadow:0 0 26px rgba(59,130,246,.5)}
+.send-btn:disabled{opacity:.4;cursor:default;transform:none}
+/* scroll panels */
+.scroll-panel{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:14px}
+.scroll-panel::-webkit-scrollbar{width:4px}
+.scroll-panel::-webkit-scrollbar-thumb{background:rgba(96,165,250,.15);border-radius:4px}
+.planner-header{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+.planner-header .field{flex:1;min-width:140px}
+.sec{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);margin:4px 0 7px;display:flex;align-items:center;gap:8px}
+.sec::after{content:'';flex:1;height:1px;background:var(--rim)}
+/* plan cards */
+.plan-card{background:var(--surface2);border:1px solid var(--rim);border-radius:14px;padding:15px}
+.plan-card h3{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:#60a5fa;margin-bottom:10px}
+.plan-overview{font-size:13px;color:var(--dim);line-height:1.6}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chip{padding:3px 10px;border-radius:999px;font-size:12px;font-family:'JetBrains Mono',monospace;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.2);color:#60a5fa}
+.chip.green{background:rgba(16,185,129,.1);border-color:rgba(16,185,129,.2);color:var(--green)}
+.chip.amber{background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.2);color:var(--amber)}
+.chip.red{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.2);color:var(--red)}
+.day-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:8px;margin-top:4px}
+.day-card{background:var(--surface3);border:1px solid var(--rim);border-radius:10px;padding:12px}
+.day-num{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:4px}
+.day-title{font-size:12px;font-weight:600;margin-bottom:6px}
+.day-tasks{list-style:none;display:flex;flex-direction:column;gap:3px}
+.day-tasks li{font-size:11px;color:var(--dim);padding-left:12px;position:relative;line-height:1.4}
+.day-tasks li::before{content:'·';position:absolute;left:2px;color:var(--accent)}
+.day-goal{font-size:11px;color:var(--green);margin-top:5px;font-style:italic}
+.stage-item{display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid var(--rim);border-radius:10px;background:var(--surface3);margin-bottom:6px}
+.stage-num{width:24px;height:24px;border-radius:50%;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.25);display:grid;place-items:center;font-size:11px;font-weight:700;color:#60a5fa;flex-shrink:0}
+.stage-body{flex:1;min-width:0}
+.stage-name{font-size:13px;font-weight:600;margin-bottom:3px}
+.stage-focus{font-size:12px;color:var(--dim);line-height:1.45}
+.source-item{padding:10px 12px;border:1px solid var(--rim);border-radius:10px;font-size:12px;background:var(--surface3);margin-bottom:6px}
+.source-item a{color:#60a5fa;text-decoration:none}
+.source-item a:hover{text-decoration:underline}
+.source-snip{color:var(--dim);font-size:11px;margin-top:3px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+/* resume */
+.upload-zone{border:2px dashed rgba(96,165,250,.2);border-radius:14px;padding:36px;text-align:center;cursor:pointer;transition:all .2s;background:rgba(11,25,41,.35)}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:rgba(59,130,246,.06)}
+.upload-zone input{display:none}
+.upload-icon{font-size:38px;margin-bottom:10px;display:block}
+.upload-hint{color:var(--dim);font-size:12px;margin-top:5px}
+.resume-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.resume-card{background:var(--surface2);border:1px solid var(--rim);border-radius:12px;padding:13px}
+.resume-card h4{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:8px}
+.edu-item,.co-item{font-size:12px;padding:5px 0;border-bottom:1px solid var(--rim);color:var(--dim);line-height:1.35}
+.edu-item:last-child,.co-item:last-child{border-bottom:none}
+/* right panel */
+.right-panel{grid-row:2;border-left:1px solid var(--rim);background:rgba(7,19,30,.6);display:flex;flex-direction:column;overflow:hidden}
+.right-panel .panel-tabs{border-top:none}
+.right-content{display:none;flex:1;overflow-y:auto;flex-direction:column}
+.right-content.active{display:flex}
+.right-content::-webkit-scrollbar{width:3px}
+.right-content::-webkit-scrollbar-thumb{background:rgba(96,165,250,.12);border-radius:3px}
+#threeCanvas{width:100%;height:210px;display:block;border-bottom:1px solid var(--rim);cursor:grab}
+#threeCanvas:active{cursor:grabbing}
+.graph-info{padding:8px 12px;font-size:11px;color:var(--dim);border-bottom:1px solid var(--rim);line-height:1.5}
+.graph-legend{display:flex;flex-wrap:wrap;gap:8px;padding:6px 12px 8px;border-bottom:1px solid var(--rim)}
+.legend-dot{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--dim)}
+.mem-list{padding:8px 10px;display:flex;flex-direction:column;gap:4px}
+.mem-item{padding:8px 10px;border:1px solid var(--rim);border-radius:9px;background:var(--surface3);font-size:11px}
+.mem-ent{font-weight:600;color:#60a5fa;font-family:'JetBrains Mono',monospace;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.mem-rel{color:var(--dim);font-size:10px;margin-top:2px}
+.mem-type-badge{display:inline-block;padding:1px 6px;border-radius:5px;font-size:10px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.18);color:var(--green);margin-left:4px}
+.eph-item{padding:7px 10px;border:1px solid var(--rim);border-radius:8px;font-size:11px;color:var(--dim);margin-bottom:4px;font-family:'JetBrains Mono',monospace;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.profile-item{padding:8px 11px;border-radius:9px;font-size:12px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;gap:6px}
+.strength-item{background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.13)}
+.weakness-item{background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.13)}
+.profile-name{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:12px}
+.score-badge{font-family:'JetBrains Mono',monospace;font-size:10px;padding:2px 6px;border-radius:5px;background:rgba(0,0,0,.3);flex-shrink:0}
+.rp-pad{padding:12px}
+.empty{color:var(--dim);font-size:12px;text-align:center;padding:20px;font-style:italic}
+/* toast / spinner */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--surface2);border:1px solid var(--rim);border-radius:11px;padding:9px 16px;font-size:13px;z-index:999;opacity:0;transition:all .28s;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.err{border-color:rgba(239,68,68,.35);color:var(--red)}
+.toast.ok{border-color:rgba(16,185,129,.35);color:var(--green)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{width:14px;height:14px;border:2px solid rgba(96,165,250,.18);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+.loading-row{display:flex;align-items:center;gap:8px;color:var(--dim);font-size:13px;padding:20px;justify-content:center}
+/* interview */
+.interview-box{background:var(--surface2);border:1px solid var(--rim2);border-radius:14px;padding:20px;margin-top:15px;animation:fadeUp .3s ease both;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+.interview-q{font-size:16px;font-weight:600;color:#60a5fa;margin-bottom:15px;line-height:1.5}
+.interview-input-row{display:flex;gap:10px;align-items:center}
+.interview-input{flex:1;background:var(--surface3);border:1px solid var(--rim);border-radius:10px;padding:12px;color:var(--text);font-size:14px;font-family:inherit;outline:none;transition:border-color .2s}
+.interview-input:focus{border-color:var(--accent)}
+.interview-fb{margin-top:15px;padding:15px;background:rgba(16,185,129,.05);border:1px solid rgba(16,185,129,.2);border-radius:10px;font-size:13px;line-height:1.6}
+.interview-fb h5{color:var(--green);font-size:10px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;font-family:'Syne',sans-serif}
+.interview-score-wrap{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.interview-score{font-family:'JetBrains Mono',monospace;font-size:28px;color:var(--green);font-weight:700}
+.record-btn{width:46px;height:46px;border-radius:50%;border:none;background:var(--surface3);border:1px solid var(--rim);color:var(--dim);cursor:pointer;display:grid;place-items:center;transition:all .2s;font-size:18px}
+.record-btn:hover{border-color:var(--red);color:var(--red)}
+.record-btn.active{background:var(--red);color:#fff;border-color:var(--red);box-shadow:0 0 20px rgba(239,68,68,.5);animation:micPulse 1.5s infinite}
+@keyframes micPulse{0%{transform:scale(1);box-shadow:0 0 10px rgba(239,68,68,.3)}50%{transform:scale(1.1);box-shadow:0 0 25px rgba(239,68,68,.6)}100%{transform:scale(1);box-shadow:0 0 10px rgba(239,68,68,.3)}}
+</style>
+</head>
+<body>
+<div class="orb orb1"></div><div class="orb orb2"></div>
+
+<div class="shell signed-out" id="appShell">
+
+<header class="topbar">
+  <div class="logo"><div class="logo-icon">✨</div>Inte<span>ra</span></div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="switchMain('chat')">Chat</button>
+    <button class="nav-tab" onclick="switchMain('planner')">Company Analyzer</button>
+    <button class="nav-tab" onclick="switchMain('resume')">Resume Analyzer</button>
+  </div>
+  <div class="topbar-gap"></div>
+  <div class="auth-bar">
+    <div class="show-so" style="display:flex;gap:6px;align-items:center">
+      <input class="field" id="usernameInput" placeholder="Username" style="width:115px"/>
+      <input class="field" id="passwordInput" type="password" placeholder="Password" style="width:115px"/>
+      <button class="btn btn-primary" onclick="doLogin()">Sign in</button>
+      <button class="btn" onclick="doRegister()">Register</button>
+    </div>
+    <div class="show-si" style="display:flex;gap:7px;align-items:center">
+      <div class="user-chip"><div class="avatar" id="userAvatar">?</div><span id="usernameDisplay" style="font-size:13px"></span></div>
+      <button class="btn btn-ghost btn-danger" onclick="doLogout()">Sign out</button>
+    </div>
+  </div>
+</header>
+
+<aside class="sidebar">
+  <div class="sidebar-head">
+    <div class="sidebar-label">Conversations</div>
+    <button class="new-convo-btn" onclick="newConversation()">＋ New conversation</button>
+  </div>
+  <div class="convo-list" id="convoList"><div class="empty" style="padding:12px;font-size:11px">Sign in to see saved chats</div></div>
+</aside>
+
+<main class="main-area">
+  <!-- CHAT -->
+  <div class="panel-body active" id="chatPanel">
+    <div class="msgs" id="msgs">
+      <div class="msg bot">Welcome to <strong>Intera</strong> — your AI with persistent memory. Sign in to start building your personal knowledge graph.</div>
+    </div>
+    <div class="composer">
+      <div class="composer-opts"><label class="toggle"><input type="checkbox" id="webToggle"/> 🌐 Enable web search</label></div>
+      <div class="composer-row">
+        <textarea id="msgInput" placeholder="Ask anything… I remember context across conversations." rows="2" onkeydown="handleKey(event)"></textarea>
+        <button class="send-btn" id="sendBtn" onclick="sendMessage()">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PLANNER -->
+  <div class="panel-body" id="plannerPanel">
+    <div class="scroll-panel">
+      <div class="sec">Company Interview Analyzer</div>
+      <p style="color:var(--dim);font-size:13px;line-height:1.6">Research any company for interview prep — powered by DuckDuckGo web search + your personal memory graph. Get a personalized day-by-day plan.</p>
+      <div class="planner-header">
+        <input class="field" id="companyInput" placeholder="Company name (e.g. Google, Flipkart, TCS)…" style="flex:1"/>
+        <input class="field" id="daysInput" type="number" placeholder="Days" value="14" min="1" max="60" style="width:80px"/>
+        <button class="btn btn-primary" id="plannerBtn" onclick="runPlanner()">Analyze</button>
+      </div>
+      <div id="plannerResult"></div>
+    </div>
+  </div>
+
+  <!-- RESUME -->
+  <div class="panel-body" id="resumePanel">
+    <div class="scroll-panel">
+      <div class="sec">Resume Analyzer</div>
+      <p style="color:var(--dim);font-size:13px;line-height:1.6">Upload your PDF resume — skills, companies and education are extracted and saved to your personal graph automatically.</p>
+      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('resumeFile').click()" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
+        <input type="file" id="resumeFile" accept=".pdf" onchange="uploadResume(this.files[0])"/>
+        <span class="upload-icon">📄</span>
+        <div style="font-size:15px;font-weight:500">Drop your resume PDF here</div>
+        <div class="upload-hint">or click to browse · max 10 MB</div>
+      </div>
+      <div id="resumeResult"></div>
+      <div id="interviewContainer" style="display:none">
+        <div class="interview-box">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div class="sec" style="margin:0">Live Mock Interview</div>
+            <select class="field" id="interviewMode" style="width:140px;height:28px;padding:2px 6px">
+              <option value="resume">Resume Only</option>
+              <option value="mix" selected>Personalized Mix</option>
+            </select>
+          </div>
+          <div id="interviewContent">
+            <div class="interview-q" id="interviewQuestion">Initializing interview session...</div>
+            <div class="interview-input-row">
+              <input type="text" class="interview-input" id="interviewInput" placeholder="Type your answer here..." onkeydown="if(event.key==='Enter')submitAnswer()"/>
+              <button class="record-btn" id="micBtn" onclick="toggleMic()" title="Speak your answer">🎤</button>
+              <button class="btn btn-primary" id="answerBtn" onclick="submitAnswer()">Submit</button>
+            </div>
+          </div>
+          <div id="interviewFeedback" style="display:none" class="interview-fb"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<aside class="right-panel">
+  <div class="panel-tabs">
+    <button class="panel-tab active" onclick="switchRight('graph')">Graph</button>
+    <button class="panel-tab" onclick="switchRight('ephemeral')">Memory</button>
+    <button class="panel-tab" onclick="switchRight('profile')">Profile</button>
+  </div>
+  <div class="right-content active" id="graphTab">
+    <canvas id="threeCanvas"></canvas>
+    <div class="graph-info" id="graphInfo">Sign in to load your memory graph</div>
+    <div class="graph-legend" id="graphLegend"></div>
+    <div class="mem-list" id="memList"></div>
+  </div>
+  <div class="right-content" id="ephemeralTab">
+    <div class="rp-pad">
+      <div class="sec">Working Memory</div>
+      <div id="ephemeralItems"><div class="empty">No working memory yet</div></div>
+    </div>
+  </div>
+  <div class="right-content" id="profileTab">
+    <div class="rp-pad">
+      <div class="sec">Strengths</div>
+      <div id="strengthItems"><div class="empty">No profile data yet</div></div>
+      <div class="sec" style="margin-top:14px">Weaknesses</div>
+      <div id="weaknessItems"><div class="empty">None identified</div></div>
+      <div class="sec" style="margin-top:14px">Improving</div>
+      <div id="improvingItems"><div class="empty">None identified</div></div>
+      <div style="margin-top:16px">
+        <button class="btn btn-danger" style="width:100%;justify-content:center;font-size:12px" onclick="resetMemory()">🗑 Reset all memory</button>
+      </div>
+    </div>
+  </div>
+</aside>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+// THREE.JS GRAPH
+// ══════════════════════════════════════════════════════════════════════════════
+const TYPE_COLORS={User:0x3b82f6,Skill:0x10b981,Company:0xf59e0b,Education:0x8b5cf6,Topic:0x06b6d4,Goal:0xf97316,Email:0x6366f1,Person:0xec4899,Entity:0x64748b};
+function colorForType(t){return TYPE_COLORS[t]||TYPE_COLORS.Entity;}
+
+let scene,camera,renderer,animId;
+let gNodes=[],gEdges=[];
+let isDrag=false,prevM={x:0,y:0};
+let sph={theta:.4,phi:1.1,radius:250};
+let autoRotate=true;
+
+function initThree(){
+  const canvas=document.getElementById('threeCanvas');
+  const W=canvas.parentElement.clientWidth,H=210;
+  canvas.width=W;canvas.height=H;
+  scene=new THREE.Scene();
+  camera=new THREE.PerspectiveCamera(55,W/H,1,2000);
+  camUpdate();
+  renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  renderer.setSize(W,H);
+  renderer.setClearColor(0x000000,0);
+  scene.add(new THREE.AmbientLight(0x8faad8,.9));
+  const d=new THREE.DirectionalLight(0xffffff,.5);d.position.set(200,200,200);scene.add(d);
+  canvas.addEventListener('mousedown',e=>{isDrag=true;autoRotate=false;prevM={x:e.clientX,y:e.clientY};});
+  canvas.addEventListener('mousemove',e=>{
+    if(!isDrag)return;
+    sph.theta-=(e.clientX-prevM.x)*.009;
+    sph.phi=Math.max(.1,Math.min(Math.PI-.1,sph.phi+(e.clientY-prevM.y)*.009));
+    prevM={x:e.clientX,y:e.clientY};camUpdate();
+  });
+  canvas.addEventListener('mouseup',()=>{isDrag=false;setTimeout(()=>{autoRotate=true;},2000);});
+  canvas.addEventListener('mouseleave',()=>{isDrag=false;});
+  canvas.addEventListener('wheel',e=>{sph.radius=Math.max(80,Math.min(700,sph.radius+e.deltaY*.4));camUpdate();},{passive:true});
+  threeLoop();
+}
+function camUpdate(){
+  const x=sph.radius*Math.sin(sph.phi)*Math.sin(sph.theta);
+  const y=sph.radius*Math.cos(sph.phi);
+  const z=sph.radius*Math.sin(sph.phi)*Math.cos(sph.theta);
+  camera.position.set(x,y,z);camera.lookAt(0,0,0);
+}
+function threeLoop(){
+  animId=requestAnimationFrame(threeLoop);
+  if(autoRotate){sph.theta+=.004;camUpdate();}
+  renderer.render(scene,camera);
+}
+function clearGraph(){
+  gNodes.forEach(o=>scene.remove(o));gEdges.forEach(o=>scene.remove(o));
+  gNodes=[];gEdges=[];
+}
+function buildGraph(nodes,edges){
+  clearGraph();
+  if(!nodes||nodes.length===0)return;
+  // force layout
+  const pos={};
+  nodes.forEach((n,i)=>{
+    const a=(i/nodes.length)*Math.PI*2,r=50+Math.random()*50;
+    pos[n.id]={x:Math.cos(a)*r,y:(Math.random()-.5)*30,z:Math.sin(a)*r};
+  });
+  for(let it=0;it<100;it++){
+    for(let i=0;i<nodes.length;i++){for(let j=i+1;j<nodes.length;j++){
+      const a=pos[nodes[i].id],b=pos[nodes[j].id];
+      const dx=a.x-b.x,dy=a.y-b.y,dz=a.z-b.z;
+      const dist=Math.sqrt(dx*dx+dy*dy+dz*dz)||1;
+      const f=2200/(dist*dist);
+      const fx=(dx/dist)*f*.05,fy=(dy/dist)*f*.015,fz=(dz/dist)*f*.05;
+      a.x+=fx;a.y+=fy;a.z+=fz;b.x-=fx;b.y-=fy;b.z-=fz;
+    }}
+    edges.forEach(e=>{
+      const a=pos[e.source],b=pos[e.target];if(!a||!b)return;
+      const dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z;
+      const dist=Math.sqrt(dx*dx+dy*dy+dz*dz)||1;
+      const ideal=90,f=(dist-ideal)*.013;
+      const fx=(dx/dist)*f,fy=(dy/dist)*f,fz=(dz/dist)*f;
+      a.x+=fx;a.y+=fy;a.z+=fz;b.x-=fx;b.y-=fy;b.z-=fz;
+    });
+    nodes.forEach(n=>{const p=pos[n.id];p.x*=.98;p.y*=.97;p.z*=.98;});
+  }
+  // edges
+  edges.forEach(e=>{
+    const a=pos[e.source],b=pos[e.target];if(!a||!b)return;
+    const pts=[new THREE.Vector3(a.x,a.y,a.z),new THREE.Vector3(b.x,b.y,b.z)];
+    const g=new THREE.BufferGeometry().setFromPoints(pts);
+    const m=new THREE.LineBasicMaterial({color:0x3b82f6,opacity:.3,transparent:true});
+    const l=new THREE.Line(g,m);scene.add(l);gEdges.push(l);
+  });
+  // nodes
+  nodes.forEach(n=>{
+    const p=pos[n.id];
+    const isUser=n.type==='User';
+    const sz=isUser?10:Math.max(5,Math.min(10,(n.size||8)*.55));
+    const col=colorForType(n.type);
+    const geo=new THREE.SphereGeometry(sz,isUser?16:10,isUser?16:10);
+    const mat=new THREE.MeshPhongMaterial({color:col,emissive:col,emissiveIntensity:isUser?.5:.25,shininess:70,transparent:true,opacity:.92});
+    const mesh=new THREE.Mesh(geo,mat);
+    mesh.position.set(p.x,p.y,p.z);scene.add(mesh);gNodes.push(mesh);
+    if(isUser){
+      const ringGeo=new THREE.SphereGeometry(sz*1.5,16,16);
+      const ringMat=new THREE.MeshPhongMaterial({color:col,transparent:true,opacity:.1,wireframe:false});
+      const ring=new THREE.Mesh(ringGeo,ringMat);ring.position.copy(mesh.position);
+      scene.add(ring);gNodes.push(ring);
+    }
+  });
+  // info
+  document.getElementById('graphInfo').innerHTML=`<strong style="color:var(--text)">${nodes.length}</strong> nodes &nbsp;·&nbsp; <strong style="color:var(--text)">${edges.length}</strong> connections`;
+  // legend
+  const types=[...new Set(nodes.map(n=>n.type))];
+  document.getElementById('graphLegend').innerHTML=types.map(t=>{
+    const c=colorForType(t).toString(16).padStart(6,'0');
+    return `<span class="legend-dot"><span style="width:8px;height:8px;border-radius:50%;background:#${c};display:inline-block;flex-shrink:0"></span>${t}</span>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════════════════════
+let currentUser=null,currentConvoId=null,rightTab='graph';
+
+// ══════════════════════════════════════════════════════════════════════════════
+// AUTH
+// ══════════════════════════════════════════════════════════════════════════════
+function applyAuth(user){
+  currentUser=user;
+  const sh=document.getElementById('appShell');
+  if(user){
+    sh.classList.remove('signed-out');sh.classList.add('signed-in');
+    document.getElementById('usernameDisplay').textContent=user.username;
+    document.getElementById('userAvatar').textContent=user.username[0].toUpperCase();
+    loadConvos();refreshRight();
+  } else {
+    sh.classList.remove('signed-in');sh.classList.add('signed-out');
+    document.getElementById('convoList').innerHTML='<div class="empty" style="padding:12px;font-size:11px">Sign in to see saved chats</div>';
+    document.getElementById('graphInfo').textContent='Sign in to load your memory graph';
+    document.getElementById('graphLegend').innerHTML='';
+    document.getElementById('memList').innerHTML='';
+    clearGraph();
+  }
+}
+async function checkAuth(){
+  try{const r=await fetch('/auth/me',{credentials:'include'});const d=await r.json();applyAuth(d.authenticated?d.user:null);}
+  catch{applyAuth(null);}
+}
+async function doLogin(){
+  const u=document.getElementById('usernameInput').value.trim();
+  const p=document.getElementById('passwordInput').value;
+  if(!u||!p){toast('Enter username and password','err');return;}
+  try{
+    const r=await fetch('/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({username:u,password:p})});
+    const d=await r.json();
+    if(!r.ok){toast(d.detail||'Login failed','err');return;}
+    applyAuth(d.user);toast('Welcome back, '+d.user.username+' 👋','ok');
+  }catch{toast('Login error','err');}
+}
+async function doRegister(){
+  const u=document.getElementById('usernameInput').value.trim();
+  const p=document.getElementById('passwordInput').value;
+  if(!u||!p){toast('Enter username and password','err');return;}
+  if(p.length<8){toast('Password must be at least 8 characters','err');return;}
+  try{
+    const r=await fetch('/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({username:u,password:p})});
+    const d=await r.json();
+    if(!r.ok){toast(d.detail||'Registration failed','err');return;}
+    applyAuth(d.user);toast('Account created!','ok');
+    appendMsg('bot',"Account created. Your private memory space is ready. Tell me about yourself — your goals, skills, what you're working on.");
+  }catch{toast('Registration error','err');}
+}
+async function doLogout(){
+  await fetch('/auth/logout',{method:'POST',credentials:'include'});
+  applyAuth(null);currentConvoId=null;
+  document.getElementById('msgs').innerHTML='<div class="msg bot">Signed out.</div>';
+  toast('Signed out','ok');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CHAT
+// ══════════════════════════════════════════════════════════════════════════════
+function appendMsg(role,text,badge=''){
+  const el=document.createElement('div');
+  el.className='msg '+role;el.textContent=text;
+  if(badge)el.insertAdjacentHTML('beforeend','<br/>'+badge);
+  document.getElementById('msgs').appendChild(el);
+  document.getElementById('msgs').scrollTop=99999;
+  return el;
+}
+function handleKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}
+async function sendMessage(){
+  const inp=document.getElementById('msgInput');
+  const msg=inp.value.trim();if(!msg)return;
+  if(!currentUser){toast('Please sign in first','err');return;}
+  inp.value='';
+  appendMsg('user',msg);
+  const thinking=appendMsg('bot thinking','Thinking…');
+  document.getElementById('sendBtn').disabled=true;
+  try{
+    const body={message:msg,allow_web_search:document.getElementById('webToggle').checked,source:'chat'};
+    if(currentConvoId)body.conversation_id=currentConvoId;
+    const r=await fetch('/chat',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json();
+    if(!r.ok){thinking.remove();appendMsg('bot','⚠ '+(d.detail||'Error'));return;}
+    currentConvoId=d.conversation_id;thinking.remove();
+    let badge='';
+    if(d.web_search_used)badge='<span class="msg-badge">🌐 web search</span>';
+    else if(d.memory_found)badge='<span class="msg-badge green">🧠 memory used</span>';
+    appendMsg('bot',d.answer,badge);
+    loadConvos();refreshRight();
+  }catch(e){thinking.remove();appendMsg('bot','⚠ Network error.');}
+  finally{document.getElementById('sendBtn').disabled=false;inp.focus();}
+}
+function newConversation(){
+  currentConvoId=null;
+  document.getElementById('msgs').innerHTML='<div class="msg bot">New conversation started. What are you working on?</div>';
+  document.querySelectorAll('.convo-item').forEach(e=>e.classList.remove('active'));
+}
+function makeTitle(preview){
+  if(!preview||preview.trim()==='')return'New conversation';
+  const s=preview.trim();
+  // strip repeated system text
+  if(s.startsWith('convo-'))return'New conversation';
+  return s.length>42?s.slice(0,40)+'…':s;
+}
+async function loadConvos(){
+  if(!currentUser)return;
+  try{
+    const r=await fetch('/chat/conversations',{credentials:'include'});
+    const d=await r.json();
+    const list=document.getElementById('convoList');
+    if(!d.items||d.items.length===0){
+      list.innerHTML='<div class="empty" style="font-size:11px;padding:10px">No saved conversations yet</div>';return;
+    }
+    list.innerHTML=d.items.slice(0,25).map(item=>{
+      // Use preview (first user message) as title
+      const title=makeTitle(item.preview||'');
+      const isActive=item.conversation_id===currentConvoId;
+      return `<div class="convo-item ${isActive?'active':''}" onclick="loadConvo('${esc(item.conversation_id)}',this)">
+        <div class="convo-name">${esc(title)}</div>
+        ${item.preview?`<div class="convo-preview">${esc(item.preview.slice(0,40))}</div>`:''}
+      </div>`;
+    }).join('');
+  }catch{}
+}
+async function loadConvo(id,el){
+  currentConvoId=id;
+  document.querySelectorAll('.convo-item').forEach(e=>e.classList.remove('active'));
+  el&&el.classList.add('active');
+  switchMain('chat');
+  try{
+    const r=await fetch(`/chat/history/${id}`,{credentials:'include'});
+    const d=await r.json();
+    const msgs=document.getElementById('msgs');
+    if(!d.messages||d.messages.length===0){msgs.innerHTML='<div class="msg bot">No messages yet.</div>';return;}
+    msgs.innerHTML='';
+    d.messages.forEach(m=>appendMsg(m.role==='user'?'user':'bot',m.content));
+  }catch{}
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RIGHT PANEL
+// ══════════════════════════════════════════════════════════════════════════════
+function switchRight(tab){
+  rightTab=tab;
+  ['graph','ephemeral','profile'].forEach(t=>{document.getElementById(t+'Tab').classList.toggle('active',t===tab);});
+  document.querySelectorAll('.right-panel .panel-tab').forEach((el,i)=>{el.classList.toggle('active',['graph','ephemeral','profile'][i]===tab);});
+  refreshRight();
+}
+async function refreshRight(){
+  if(!currentUser)return;
+  const uid=currentUser.user_id;
+  if(rightTab==='graph')await loadGraph(uid);
+  else if(rightTab==='ephemeral')await loadEphemeral(uid);
+  else if(rightTab==='profile')await loadProfile(uid);
+}
+async function loadGraph(uid){
+  try{
+    const r=await fetch(`/graph/view/${uid}?limit=30`,{credentials:'include'});
+    if(!r.ok)return;
+    const d=await r.json();
+    const nodes=Object.values(d.nodes||{});
+    const edges=Object.values(d.edges||{});
+    if(nodes.length===0){
+      document.getElementById('graphInfo').textContent='No graph nodes yet — start chatting!';
+      document.getElementById('graphLegend').innerHTML='';
+      document.getElementById('memList').innerHTML='';
+      clearGraph();return;
+    }
+    buildGraph(nodes,edges);
+    // Memory list below graph
+    const mr=await fetch(`/graph/memory/${uid}?limit=12`,{credentials:'include'});
+    if(!mr.ok)return;
+    const md=await mr.json();
+    const items=md.items||[];
+    document.getElementById('memList').innerHTML=items.slice(0,10).map(item=>`
+      <div class="mem-item">
+        <div class="mem-ent">${esc(item.entity||'?')}</div>
+        <div class="mem-rel">${esc(item.relation||'')} <span class="mem-type-badge">${esc(item.entity_type||'')}</span></div>
+      </div>`).join('');
+  }catch(e){console.error('graph error',e);}
+}
+async function loadEphemeral(uid){
+  try{
+    const r=await fetch(`/memory/ephemeral/${uid}?limit=20`,{credentials:'include'});
+    const d=await r.json();const items=d.items||[];
+    const el=document.getElementById('ephemeralItems');
+    el.innerHTML=items.length===0?'<div class="empty">No working memory yet</div>'
+      :items.map(i=>`<div class="eph-item">${esc(i.entity||'?')} — ${esc(i.relation||'')}</div>`).join('');
+  }catch{}
+}
+async function loadProfile(uid){
+  try{
+    const r=await fetch(`/profile/summary/${uid}`,{credentials:'include'});
+    if(!r.ok){
+      document.getElementById('strengthItems').innerHTML='<div class="empty">Unable to load profile</div>';
+      return;
+    }
+    const d=await r.json();
+    const profile=d.profile||{};
+    const strengths=profile.strengths||[];
+    const weaknesses=profile.weaknesses||[];
+    document.getElementById('strengthItems').innerHTML=strengths.length===0
+      ?'<div class="empty">Chat more to build your strength profile</div>'
+      :strengths.slice(0,8).map(i=>`
+        <div class="profile-item strength-item">
+          <span class="profile-name">${esc(i.entity)}</span>
+          <span class="score-badge" style="color:var(--green)">${(+i.score||0).toFixed(2)}</span>
+        </div>`).join('');
+    document.getElementById('weaknessItems').innerHTML=weaknesses.length===0
+      ?'<div class="empty">None identified yet</div>'
+      :weaknesses.slice(0,8).map(i=>`
+        <div class="profile-item weakness-item">
+          <span class="profile-name">${esc(i.entity)}</span>
+          <span class="score-badge" style="color:var(--red)">${(+i.score||0).toFixed(2)}</span>
+        </div>`).join('');
+        
+    const improving = profile.improving || d.profile.improving || [];
+    document.getElementById('improvingItems').innerHTML=improving.length===0
+      ?'<div class="empty">None identified yet</div>'
+      :improving.slice(0,8).map(i=>`
+        <div class="profile-item" style="background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.13)">
+          <span class="profile-name">${esc(i.entity)}</span>
+          <span class="score-badge" style="color:var(--accent2)">${(+i.score||0).toFixed(2)}</span>
+        </div>`).join('');
+  }catch(e){console.error('profile error',e);}
+}
+async function resetMemory(){
+  if(!currentUser)return;
+  if(!confirm('Reset ALL memory? This cannot be undone.'))return;
+  try{
+    await fetch(`/memory/reset/${currentUser.user_id}`,{method:'DELETE',credentials:'include'});
+    toast('Memory reset','ok');
+    document.getElementById('msgs').innerHTML='<div class="msg bot">Memory reset. Fresh start!</div>';
+    clearGraph();refreshRight();
+  }catch{toast('Reset failed','err');}
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// NAV
+// ══════════════════════════════════════════════════════════════════════════════
+function switchMain(tab){
+  ['chat','planner','resume'].forEach(t=>{document.getElementById(t+'Panel').classList.toggle('active',t===tab);});
+  document.querySelectorAll('.nav-tab').forEach((el,i)=>{el.classList.toggle('active',['chat','planner','resume'][i]===tab);});
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PLANNER — fix: d.planner is a dict not a string
+// ══════════════════════════════════════════════════════════════════════════════
+async function runPlanner(){
+  if(!currentUser){toast('Please sign in first','err');return;}
+  const company=document.getElementById('companyInput').value.trim();
+  const days=parseInt(document.getElementById('daysInput').value)||14;
+  if(!company){toast('Enter a company name','err');return;}
+  const el=document.getElementById('plannerResult');
+  el.innerHTML=`<div class="loading-row"><div class="spinner"></div> Researching ${esc(company)}…</div>`;
+  document.getElementById('plannerBtn').disabled=true;
+  try{
+    const r=await fetch('/planner/company',{method:'POST',credentials:'include',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({company,days_left:days})});
+    const d=await r.json();
+    if(!r.ok){el.innerHTML=`<div style="color:var(--red);padding:12px">${esc(d.detail||'Error')}</div>`;return;}
+    el.innerHTML=renderPlan(d.planner,days,d.sources||[]);
+  }catch(e){el.innerHTML=`<div style="color:var(--red);padding:12px">Network error: ${esc(e.message||'unknown')}</div>`;}
+  finally{document.getElementById('plannerBtn').disabled=false;}
+}
+
+function renderPlan(plan,days,sources){
+  if(!plan||typeof plan!=='object')
+    return`<div style="color:var(--red);padding:12px">Plan could not be parsed. Please try again.</div>`;
+  let h='';
+  // overview
+  if(plan.overview){
+    h+=`<div class="plan-card"><h3>📋 Overview</h3><div class="plan-overview">${esc(plan.overview)}</div>`;
+    if(plan.web_focus_topics?.length)
+      h+=`<div class="chips" style="margin-top:10px">`+plan.web_focus_topics.map(t=>`<span class="chip">${esc(t)}</span>`).join('')+`</div>`;
+    h+=`</div>`;
+  }
+  // fit analysis
+  if(plan.fit_analysis){
+    const fa=plan.fit_analysis;
+    h+=`<div class="plan-card"><h3>🎯 Personalized Fit</h3>`;
+    if(fa.strategic_summary)h+=`<div class="plan-overview" style="margin-bottom:10px">${esc(fa.strategic_summary)}</div>`;
+    if(fa.matched_strengths?.length)h+=`<div class="sec">Strengths to use</div><div class="chips">`+fa.matched_strengths.map(s=>`<span class="chip green">${esc(s)}</span>`).join('')+`</div>`;
+    if(fa.matched_weaknesses?.length)h+=`<div class="sec" style="margin-top:8px">Areas to fix first</div><div class="chips">`+fa.matched_weaknesses.map(s=>`<span class="chip red">${esc(s)}</span>`).join('')+`</div>`;
+    h+=`</div>`;
+  }
+  // stages
+  if(plan.stages?.length){
+    h+=`<div class="plan-card"><h3>🔁 Interview Stages</h3>`;
+    plan.stages.forEach((s,i)=>{
+      h+=`<div class="stage-item"><div class="stage-num">${i+1}</div><div class="stage-body">
+        <div class="stage-name">${esc(s.name||'Stage')}</div>
+        <div class="stage-focus">${esc(s.focus||'')}${s.resource?' · <em>'+esc(s.resource)+'</em>':''}</div>
+        ${s.expected_questions?.length?`<div class="chips" style="margin-top:6px">${s.expected_questions.slice(0,6).map(q=>`<span class="chip">${esc(q)}</span>`).join('')}</div>`:''}
+      </div></div>`;
+    });
+    h+=`</div>`;
+  }
+  // daily plan
+  if(plan.daily_plan?.length){
+    h+=`<div class="plan-card"><h3>📅 ${days}-Day Preparation Plan</h3><div class="day-grid">`;
+    plan.daily_plan.forEach(day=>{
+      h+=`<div class="day-card">
+        <div class="day-num">Day ${esc(String(day.day||''))}</div>
+        <div class="day-title">${esc(day.title||'')}</div>
+        <ul class="day-tasks">${(day.tasks||[]).slice(0,4).map(t=>`<li>${esc(t)}</li>`).join('')}</ul>
+        ${day.goal?`<div class="day-goal">🎯 ${esc(day.goal)}</div>`:''}
+      </div>`;
+    });
+    h+=`</div></div>`;
+  }
+  // recs
+  if(plan.recommendations?.length){
+    h+=`<div class="plan-card"><h3>💡 Recommendations</h3><ul class="day-tasks" style="gap:5px">`
+      +plan.recommendations.map(r=>`<li style="font-size:12px;color:var(--dim)">${esc(r)}</li>`).join('')
+      +`</ul></div>`;
+  }
+  // patterns
+  if(plan.likely_previous_question_patterns?.length){
+    h+=`<div class="plan-card"><h3>❓ Likely Question Patterns</h3><div class="chips">`
+      +plan.likely_previous_question_patterns.map(p=>`<span class="chip amber">${esc(p)}</span>`).join('')
+      +`</div></div>`;
+  }
+  // sources
+  if(sources?.length){
+    h+=`<div class="sec">Web Sources</div>`;
+    h+=sources.map(s=>`<div class="source-item"><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a><div class="source-snip">${esc(s.snippet||'')}</div></div>`).join('');
+  }
+  return h;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RESUME
+// ══════════════════════════════════════════════════════════════════════════════
+function dragOver(e){e.preventDefault();document.getElementById('uploadZone').classList.add('drag');}
+function dragLeave(){document.getElementById('uploadZone').classList.remove('drag');}
+function dropFile(e){e.preventDefault();document.getElementById('uploadZone').classList.remove('drag');const f=e.dataTransfer?.files?.[0];if(f)uploadResume(f);}
+async function uploadResume(file){
+  if(!file)return;
+  if(!currentUser){toast('Please sign in first','err');return;}
+  if(!file.name.toLowerCase().endsWith('.pdf')){toast('Only PDF files are supported','err');return;}
+  const el=document.getElementById('resumeResult');
+  el.innerHTML='<div class="loading-row"><div class="spinner"></div> Analyzing resume…</div>';
+  const fd=new FormData();fd.append('file',file);
+  try{
+    const r=await fetch('/resume/analyze',{method:'POST',credentials:'include',body:fd});
+    const d=await r.json();
+    if(!r.ok){el.innerHTML=`<div style="color:var(--red);padding:12px">${esc(d.detail||'Error')}</div>`;return;}
+    el.innerHTML=`
+      <div class="plan-card" style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <div style="font-size:15px;font-weight:600;margin-bottom:4px">${esc(d.name||'Unknown name')}</div>
+            ${d.email?`<div style="font-size:12px;color:var(--dim)">${esc(d.email)}</div>`:''}
+          </div>
+          <button class="btn btn-primary" onclick="startInterview()">🎯 Get Interview Questions</button>
+        </div>
+        <div style="margin-top:8px;font-size:12px;color:var(--green)">✓ ${d.signals_extracted} signals extracted · ${d.graph_summary?.promoted_count||0} saved to your graph</div>
+      </div>
+      <div class="resume-grid">
+        <div class="resume-card"><h4>Skills (${(d.skills||[]).length})</h4><div class="chips">${(d.skills||[]).map(s=>`<span class="chip">${esc(s)}</span>`).join('')||'<span style="color:var(--dim);font-size:12px">None detected</span>'}</div></div>
+        <div class="resume-card"><h4>Experience</h4>${(d.companies||[]).map(c=>`<div class="co-item">${esc(c)}</div>`).join('')||'<div style="color:var(--dim);font-size:12px">None detected</div>'}</div>
+        <div class="resume-card" style="grid-column:1/-1"><h4>Education</h4>${(d.education||[]).map(e=>`<div class="edu-item">${esc(e)}</div>`).join('')||'<div style="color:var(--dim);font-size:12px">None detected</div>'}</div>
+      </div>`;
+    refreshRight();toast('Resume analyzed and saved to your graph!','ok');
+  }catch{el.innerHTML='<div style="color:var(--red);padding:12px">Network error</div>';}
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// INTERVIEW
+// ══════════════════════════════════════════════════════════════════════════════
+let mediaRecorder, audioChunks=[];
+async function startInterview(){
+  document.getElementById('interviewContainer').style.display='block';
+  document.getElementById('interviewQuestion').innerHTML='<div class="loading-row"><div class="spinner"></div> Preparing your interview...</div>';
+  document.getElementById('interviewFeedback').style.display='none';
+  const mode = document.getElementById('interviewMode').value;
+  try {
+    const r = await fetch('/resume/interview/start', {
+      method:'POST', 
+      credentials:'include',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({mode: mode})
+    });
+    const d = await r.json();
+    if(!r.ok){ toast(d.detail||'Failed to start interview','err'); return; }
+    document.getElementById('interviewQuestion').textContent = d.question;
+  } catch(e) { toast('Error starting interview','err'); }
+}
+
+async function submitAnswer(){
+  const inp = document.getElementById('interviewInput');
+  const ans = inp.value.trim();
+  if(!ans) return;
+  inp.value = '';
+  const btn = document.getElementById('answerBtn');
+  const mode = document.getElementById('interviewMode').value;
+  btn.disabled = true;
+  document.getElementById('interviewFeedback').style.display = 'block';
+  document.getElementById('interviewFeedback').innerHTML = '<div class="loading-row"><div class="spinner"></div> Analyzing your answer...</div>';
+  
+  try {
+    const r = await fetch('/resume/interview/answer', {
+      method:'POST', 
+      credentials:'include', 
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({answer: ans, mode: mode})
+    });
+    const d = await r.json();
+    if(!r.ok){ toast(d.detail||'Error','err'); return; }
+    
+    // Render feedback
+    const fb = d.feedback;
+    document.getElementById('interviewFeedback').innerHTML = `
+      <div class="interview-score-wrap">
+        <div class="interview-score">${fb.score}/10</div>
+        <div style="font-size:12px;color:var(--dim)">AI Evaluation</div>
+      </div>
+      <h5>Feedback</h5>
+      <p style="margin-bottom:10px">${esc(fb.feedback)}</p>
+      ${fb.strengths?.length ? `<h5>Strengths</h5><ul class="day-tasks" style="margin-bottom:10px">${fb.strengths.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>` : ''}
+      ${fb.suggestion ? `<h5>Tip for Improvement</h5><p>${esc(fb.suggestion)}</p>` : ''}
+    `;
+    
+    // Show next question
+    document.getElementById('interviewQuestion').textContent = d.next_question;
+  } catch(e) { toast('Network error','err'); }
+  finally { btn.disabled = false; }
+}
+
+async function toggleMic(){
+  const btn = document.getElementById('micBtn');
+  if(mediaRecorder && mediaRecorder.state === 'recording'){
+    mediaRecorder.stop();
+    btn.classList.remove('active');
+    btn.textContent = '⌛'; // Processing
+    return;
+  }
+  
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+    mediaRecorder = new MediaRecorder(stream);
+    audioChunks = [];
+    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+    mediaRecorder.onstop = async () => {
+      const audioBlob = new Blob(audioChunks, {type:'audio/webm'});
+      const fd = new FormData();
+      fd.append('file', audioBlob, 'recording.webm');
+      try {
+        const r = await fetch('/audio/transcribe', {method:'POST', credentials:'include', body:fd});
+        const d = await r.json();
+        if(d.text){
+          document.getElementById('interviewInput').value = d.text;
+          btn.textContent = '🎤';
+          toast('Transcribed successfully!','ok');
+        } else {
+          toast('Transcription failed','err');
+          btn.textContent = '🎤';
+        }
+      } catch(e){ toast('Whisper error','err'); btn.textContent='🎤'; }
+    };
+    mediaRecorder.start();
+    btn.classList.add('active');
+    btn.textContent = '⏹';
+  } catch(e) { toast('Microphone access denied','err'); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════════════════════════════════════
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+let toastTimer;
+function toast(msg,type=''){
+  const el=document.getElementById('toast');el.textContent=msg;el.className='toast show '+type;
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),3400);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════════════════════
+initThree();
+checkAuth();
+</script>
+</body>
+</html>
