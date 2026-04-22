@@ -191,6 +191,7 @@ html,body{height:100%;background:var(--ink);color:var(--text);font-family:'DM Sa
     <button class="nav-tab active" onclick="switchMain('chat')">Chat</button>
     <button class="nav-tab" onclick="switchMain('planner')">Company Analyzer</button>
     <button class="nav-tab" onclick="switchMain('resume')">Resume Analyzer</button>
+    <button class="nav-tab" id="interviewTab" onclick="switchMain('interview')">Mock Interview</button>
   </div>
   <div class="topbar-gap"></div>
   <div class="auth-bar">
@@ -256,15 +257,34 @@ html,body{height:100%;background:var(--ink);color:var(--text);font-family:'DM Sa
         <div class="upload-hint">or click to browse · max 10 MB</div>
       </div>
       <div id="resumeResult"></div>
-      <div id="interviewContainer" style="display:none">
-        <div class="interview-box">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-            <div class="sec" style="margin:0">Live Mock Interview</div>
-            <select class="field" id="interviewMode" style="width:140px;height:28px;padding:2px 6px">
-              <option value="resume">Resume Only</option>
-              <option value="mix" selected>Personalized Mix</option>
+    </div>
+  </div>
+
+  <!-- INTERVIEW -->
+  <div class="panel-body" id="interviewPanel">
+    <div class="scroll-panel">
+      <div class="sec">Live Mock Interview</div>
+      <p style="color:var(--dim);font-size:13px;line-height:1.6">Practice for your next role. Choose a source and optional topic for a targeted session.</p>
+      
+      <div class="plan-card" style="margin-bottom:15px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <div>
+            <div class="sidebar-label" style="font-size:9px">Interview Source</div>
+            <select class="field" id="interviewMode" style="width:100%">
+              <option value="resume">From Resume Only</option>
+              <option value="mix" selected>From Personalized Data</option>
             </select>
           </div>
+          <div>
+            <div class="sidebar-label" style="font-size:9px">Target Topic (Optional)</div>
+            <input type="text" class="field" id="interviewTopic" placeholder="e.g. React, System Design, Python..." style="width:100%"/>
+          </div>
+        </div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="startInterview()">Start Session</button>
+      </div>
+
+      <div id="interviewContainer" style="display:none">
+        <div class="interview-box" style="margin-top:0">
           <div id="interviewContent">
             <div class="interview-q" id="interviewQuestion">Initializing interview session...</div>
             <div class="interview-input-row">
@@ -276,6 +296,7 @@ html,body{height:100%;background:var(--ink);color:var(--text);font-family:'DM Sa
           <div id="interviewFeedback" style="display:none" class="interview-fb"></div>
         </div>
       </div>
+      <div id="interviewPlaceholder" class="empty" style="margin-top:40px">Upload a resume or start chatting to enable personalized interviews.</div>
     </div>
   </div>
 </main>
@@ -519,8 +540,10 @@ async function sendMessage(){
     if(!r.ok){thinking.remove();appendMsg('bot','⚠ '+(d.detail||'Error'));return;}
     currentConvoId=d.conversation_id;thinking.remove();
     let badge='';
-    if(d.web_search_used)badge='<span class="msg-badge">🌐 web search</span>';
-    else if(d.memory_found)badge='<span class="msg-badge green">🧠 memory used</span>';
+    let toneTag = d.user_tone ? `<span class="msg-badge" style="color:var(--amber);border-color:rgba(245,158,11,0.2);background:rgba(245,158,11,0.05)">🎭 ${esc(d.user_tone)}</span>` : '';
+    if(d.web_search_used)badge=toneTag + '<span class="msg-badge">🌐 web search</span>';
+    else if(d.memory_found)badge=toneTag + '<span class="msg-badge green">🧠 memory used</span>';
+    else if(toneTag) badge=toneTag;
     appendMsg('bot',d.answer,badge);
     loadConvos();refreshRight();
   }catch(e){thinking.remove();appendMsg('bot','⚠ Network error.');}
@@ -675,8 +698,8 @@ async function resetMemory(){
 // NAV
 // ══════════════════════════════════════════════════════════════════════════════
 function switchMain(tab){
-  ['chat','planner','resume'].forEach(t=>{document.getElementById(t+'Panel').classList.toggle('active',t===tab);});
-  document.querySelectorAll('.nav-tab').forEach((el,i)=>{el.classList.toggle('active',['chat','planner','resume'][i]===tab);});
+  ['chat','planner','resume','interview'].forEach(t=>{document.getElementById(t+'Panel').classList.toggle('active',t===tab);});
+  document.querySelectorAll('.nav-tab').forEach((el,i)=>{el.classList.toggle('active',['chat','planner','resume','interview'][i]===tab);});
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -790,9 +813,15 @@ async function uploadResume(file){
             <div style="font-size:15px;font-weight:600;margin-bottom:4px">${esc(d.name||'Unknown name')}</div>
             ${d.email?`<div style="font-size:12px;color:var(--dim)">${esc(d.email)}</div>`:''}
           </div>
-          <button class="btn btn-primary" onclick="startInterview()">🎯 Get Interview Questions</button>
+          <button class="btn btn-primary" onclick="switchMain('interview')">🎯 Start Mock Interview</button>
         </div>
         <div style="margin-top:8px;font-size:12px;color:var(--green)">✓ ${d.signals_extracted} signals extracted · ${d.graph_summary?.promoted_count||0} saved to your graph</div>
+      </div>
+      <div class="plan-card" style="margin-bottom:10px;border-color:var(--accent)">
+        <h3>💡 Suggestions for Improvement</h3>
+        <ul class="day-tasks" style="padding-left:14px">
+          ${(d.suggestions||[]).map(s=>`<li style="color:var(--text);font-size:12px;margin-bottom:4px">${esc(s)}</li>`).join('')}
+        </ul>
       </div>
       <div class="resume-grid">
         <div class="resume-card"><h4>Skills (${(d.skills||[]).length})</h4><div class="chips">${(d.skills||[]).map(s=>`<span class="chip">${esc(s)}</span>`).join('')||'<span style="color:var(--dim);font-size:12px">None detected</span>'}</div></div>
@@ -806,18 +835,21 @@ async function uploadResume(file){
 // ══════════════════════════════════════════════════════════════════════════════
 // INTERVIEW
 // ══════════════════════════════════════════════════════════════════════════════
-let mediaRecorder, audioChunks=[];
+let mediaRecorder, audioChunks=[], wasMicUsed = false, currentNextQuestion = '';
 async function startInterview(){
   document.getElementById('interviewContainer').style.display='block';
   document.getElementById('interviewQuestion').innerHTML='<div class="loading-row"><div class="spinner"></div> Preparing your interview...</div>';
   document.getElementById('interviewFeedback').style.display='none';
+  document.getElementById('interviewPlaceholder').style.display='none';
+  document.getElementById('interviewContent').style.display='block';
   const mode = document.getElementById('interviewMode').value;
+  const topic = document.getElementById('interviewTopic').value.trim();
   try {
     const r = await fetch('/resume/interview/start', {
       method:'POST', 
       credentials:'include',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({mode: mode})
+      body: JSON.stringify({mode: mode, topic: topic})
     });
     const d = await r.json();
     if(!r.ok){ toast(d.detail||'Failed to start interview','err'); return; }
@@ -829,7 +861,7 @@ async function submitAnswer(){
   const inp = document.getElementById('interviewInput');
   const ans = inp.value.trim();
   if(!ans) return;
-  inp.value = '';
+  document.getElementById('interviewContent').style.display = 'none'; // Hide Q/A input initially
   const btn = document.getElementById('answerBtn');
   const mode = document.getElementById('interviewMode').value;
   btn.disabled = true;
@@ -841,9 +873,10 @@ async function submitAnswer(){
       method:'POST', 
       credentials:'include', 
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({answer: ans, mode: mode})
+      body: JSON.stringify({answer: ans, mode: mode, topic: document.getElementById('interviewTopic').value.trim(), is_spoken: wasMicUsed})
     });
     const d = await r.json();
+    wasMicUsed = false;
     if(!r.ok){ toast(d.detail||'Error','err'); return; }
     
     // Render feedback
@@ -851,18 +884,46 @@ async function submitAnswer(){
     document.getElementById('interviewFeedback').innerHTML = `
       <div class="interview-score-wrap">
         <div class="interview-score">${fb.score}/10</div>
-        <div style="font-size:12px;color:var(--dim)">AI Evaluation</div>
+        <div style="flex:1">
+          <div style="font-size:12px;color:var(--dim)">AI Evaluation</div>
+          <div style="display:flex;gap:15px;margin-top:2px">
+            <div style="font-size:12px;color:var(--accent2);font-weight:600">Tone: ${esc(fb.tone || 'Neutral')}</div>
+            <div style="font-size:12px;color:var(--amber);font-weight:600">Clarity: ${esc(fb.clarity || 'Normal')}</div>
+          </div>
+        </div>
       </div>
       <h5>Feedback</h5>
       <p style="margin-bottom:10px">${esc(fb.feedback)}</p>
+      ${fb.linguistic_notes?.length ? `<h5>Linguistic Improvements</h5><ul class="day-tasks" style="margin-bottom:10px">${fb.linguistic_notes.map(n=>`<li style="color:var(--amber)">${esc(n)}</li>`).join('')}</ul>` : ''}
       ${fb.strengths?.length ? `<h5>Strengths</h5><ul class="day-tasks" style="margin-bottom:10px">${fb.strengths.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>` : ''}
       ${fb.suggestion ? `<h5>Tip for Improvement</h5><p>${esc(fb.suggestion)}</p>` : ''}
+      
+      <div style="margin-top:20px;padding-top:15px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:11px;color:var(--dim)">Was analyzed by Intera AI Intelligence</div>
+        <button class="btn btn-primary" onclick="showNextQuestion()">Next Question →</button>
+      </div>
     `;
     
-    // Show next question
-    document.getElementById('interviewQuestion').textContent = d.next_question;
-  } catch(e) { toast('Network error','err'); }
+    currentNextQuestion = d.next_question;
+    
+    // Add transcript at the top of feedback
+    const transcriptHtml = `<div style="margin-bottom:15px;padding:10px;background:rgba(255,255,255,0.03);border-radius:6px;font-size:13px;border-left:3px solid var(--accent)">
+      <div style="font-size:10px;text-transform:uppercase;margin-bottom:4px;color:var(--dim)">Your Answer (Transcript)</div>
+      "${esc(ans)}"
+    </div>`;
+    document.getElementById('interviewFeedback').insertAdjacentHTML('afterbegin', transcriptHtml);
+    
+  } catch(e) { toast('Network error','err'); document.getElementById('interviewContent').style.display = 'block'; }
   finally { btn.disabled = false; }
+}
+
+function showNextQuestion(){
+  if(!currentNextQuestion) return;
+  document.getElementById('interviewQuestion').textContent = currentNextQuestion;
+  document.getElementById('interviewFeedback').style.display = 'none';
+  document.getElementById('interviewContent').style.display = 'block';
+  document.getElementById('interviewInput').value = '';
+  currentNextQuestion = '';
 }
 
 async function toggleMic(){
@@ -888,6 +949,7 @@ async function toggleMic(){
         const d = await r.json();
         if(d.text){
           document.getElementById('interviewInput').value = d.text;
+          wasMicUsed = true;
           btn.textContent = '🎤';
           toast('Transcribed successfully!','ok');
         } else {

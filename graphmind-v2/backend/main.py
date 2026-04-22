@@ -18,7 +18,7 @@ from .auth_store import AuthUser, authenticate_user, create_session, delete_sess
 from .chat_history_store import ensure_conversation, get_chat_history, list_conversations, save_message as save_chat_message
 from .db import get_session
 from .event_store import delete_user_events, log_promotions, log_raw_event, recent_raw_events
-from .gemini_chat import analyze_strength_weakness_profile, classify_profile_graph_signals, classify_relation_with_llm, configured_models, evaluate_response_relevance, extract_triple_candidates, generate_company_planner, generate_reply_bundle, generate_interview_question, evaluate_interview_answer, transcribe_audio
+from .gemini_chat import analyze_message_tone, analyze_strength_weakness_profile, classify_profile_graph_signals, classify_relation_with_llm, configured_models, evaluate_response_relevance, extract_triple_candidates, generate_company_planner, generate_reply_bundle, generate_interview_question, evaluate_interview_answer, transcribe_audio, generate_resume_suggestions
 from .profile_store import delete_user_profile, fetch_profile_summary, upsert_profile_observations
 from .graph.service import graph_memory_service
 from .prompt_router import route_prompt
@@ -86,11 +86,14 @@ class CompanyPlannerRequest(BaseModel):
 
 class InterviewStartRequest(BaseModel):
     mode: str = "mix"
+    topic: str | None = None
 
 
 class InterviewAnswerRequest(BaseModel):
     answer: str
     mode: str = "mix"
+    topic: str | None = None
+    is_spoken: bool = False
 
 
 # ─────────────────────────── startup ────────────────────────────────────────
@@ -584,6 +587,7 @@ async def resume_analyze(
         "signals_extracted": len(signals),
         "graph_summary": summary,
         "text_preview": result.get("text_preview", ""),
+        "suggestions": generate_resume_suggestions(resume_text=full_text)
     }
 
 
@@ -603,6 +607,7 @@ def chat(req: ChatRequest, background_tasks: BackgroundTasks, graphmind_session:
     recent_history = get_chat_history(conversation_id=conversation_id, user_id=resolved_user_id, limit=10)
     topic_match = topic_semantic_router.detect(req.message)
     route_decision = route_prompt(req.message, semantic_topic=topic_match.topic if topic_match else None)
+    user_tone = analyze_message_tone(message=req.message)
     search_plan = build_search_plan(message=req.message, semantic_topic=topic_match.topic if topic_match else None, route_intent=route_decision.intent)
     section_plan = resolve_sections(message=req.message, route_intent=route_decision.intent, semantic_topic=topic_match.topic if topic_match else None, target_entity=str(search_plan.entities.get("entity") or "").strip() or None)
     graph_evidence: dict = {"facts": [], "paths": [], "citations": []}
@@ -657,7 +662,7 @@ def chat(req: ChatRequest, background_tasks: BackgroundTasks, graphmind_session:
     add_message(message_id=bot_msg_id, text=answer, metadata={"user_id": resolved_user_id, "conversation_id": conversation_id, "role": "assistant", "created_at": datetime.now(timezone.utc).isoformat()})
     save_chat_message(conversation_id=conversation_id, user_id=resolved_user_id, role="assistant", content=answer)
     log_raw_event(user_id=resolved_user_id, conversation_id=conversation_id, source_type="assistant_reply", source_ref="chat:assistant_reply", role="assistant", content=answer, metadata={"conversation_id": conversation_id, "llm_provider": reply_bundle.get("provider", "unknown"), "llm_model": reply_bundle.get("model", "unknown"), "graph_paths": list(graph_evidence.get("paths") or [])}, created_at=datetime.now(timezone.utc).isoformat())
-    return {"user_id": resolved_user_id, "conversation_id": conversation_id, "answer": answer, "retrieved_count": len(snippets), "retrieval_time_ms": retrieval_time_ms, "graph_retrieval_time_ms": graph_retrieval_time_ms, "web_retrieval_time_ms": web_retrieval_time_ms, "retrieval_mode": retrieval_mode, "memory_found": memory_hit, "web_search_used": web_search_used, "suggest_web_search": (not memory_hit and not effective_allow_web_search and bool(search_plan.queries)), "graph_confidence": round(graph_max_score, 4), "graph_promotion_time_ms": 0, "signal_extraction_time_ms": 0, "signals_extracted": mem_result.get("signals_extracted", 0), "promotion_summary": mem_result.get("promotion_summary", {}), "route": route_decision.to_dict(), "topic_match": ({"topic": topic_match.topic, "score": topic_match.score, "source": topic_match.source} if topic_match else None), "search_plan": search_plan.to_dict(), "section_plan": {"sections": section_plan.sections, "focus_entity": section_plan.focus_entity, "tags": section_plan.query_tags(), "families": section_plan.query_families()}, "web_results": web_results, "graph_evidence": graph_evidence, "llm_provider": reply_bundle.get("provider", "unknown"), "llm_model": reply_bundle.get("model", "unknown"), "llm_generation_time_ms": llm_generation_time_ms, "answer_relevance": relevance, "memory_update_mode": "synchronous", "ephemeral_backend": graph_memory_service.ephemeral_backend, "time_ms": int((time.time() - start) * 1000)}
+    return {"user_id": resolved_user_id, "conversation_id": conversation_id, "answer": answer, "user_tone": user_tone, "retrieved_count": len(snippets), "retrieval_time_ms": retrieval_time_ms, "graph_retrieval_time_ms": graph_retrieval_time_ms, "web_retrieval_time_ms": web_retrieval_time_ms, "retrieval_mode": retrieval_mode, "memory_found": memory_hit, "web_search_used": web_search_used, "suggest_web_search": (not memory_hit and not effective_allow_web_search and bool(search_plan.queries)), "graph_confidence": round(graph_max_score, 4), "graph_promotion_time_ms": 0, "signal_extraction_time_ms": 0, "signals_extracted": mem_result.get("signals_extracted", 0), "promotion_summary": mem_result.get("promotion_summary", {}), "route": route_decision.to_dict(), "topic_match": ({"topic": topic_match.topic, "score": topic_match.score, "source": topic_match.source} if topic_match else None), "search_plan": search_plan.to_dict(), "section_plan": {"sections": section_plan.sections, "focus_entity": section_plan.focus_entity, "tags": section_plan.query_tags(), "families": section_plan.query_families()}, "web_results": web_results, "graph_evidence": graph_evidence, "llm_provider": reply_bundle.get("provider", "unknown"), "llm_model": reply_bundle.get("model", "unknown"), "llm_generation_time_ms": llm_generation_time_ms, "answer_relevance": relevance, "memory_update_mode": "synchronous", "ephemeral_backend": graph_memory_service.ephemeral_backend, "time_ms": int((time.time() - start) * 1000)}
 
 
 @app.post("/audio/transcribe")
@@ -684,6 +689,7 @@ async def interview_start(
         resolved_user_id = _resolve_user_id(None, current_user)
         
         mode = req.mode
+        topic = req.topic or ""
         
         resume_context = graph_memory_service.ephemeral_store._client.get(f"graphmind:resume_context:{resolved_user_id}")
         if not resume_context:
@@ -710,12 +716,17 @@ async def interview_start(
 
         # Clear previous history
         graph_memory_service.ephemeral_store._client.delete(f"graphmind:interview_history:{resolved_user_id}")
+        graph_memory_service.ephemeral_store._client.delete(f"graphmind:interview_topic:{resolved_user_id}")
         
+        if topic:
+            graph_memory_service.ephemeral_store._client.set(f"graphmind:interview_topic:{resolved_user_id}", topic, ex=3600)
+
         question = generate_interview_question(
             resume_context=resume_context, 
             history=[], 
             profile_context=profile_text, 
-            graph_context=graph_text
+            graph_context=graph_text,
+            topic=topic
         )
         
         # Save the question as history
@@ -747,9 +758,16 @@ async def interview_answer(
         
         answer = req.answer
         mode = req.mode
+        topic = req.topic or ""
         
         resume_context = graph_memory_service.ephemeral_store._client.get(f"graphmind:resume_context:{resolved_user_id}")
         history_raw = graph_memory_service.ephemeral_store._client.get(f"graphmind:interview_history:{resolved_user_id}")
+        
+        # If no topic in request, try to get from ephemeral store
+        if not topic:
+            topic_raw = graph_memory_service.ephemeral_store._client.get(f"graphmind:interview_topic:{resolved_user_id}")
+            if topic_raw:
+                topic = topic_raw.decode("utf-8") if isinstance(topic_raw, bytes) else topic_raw
         
         if not resume_context or not history_raw:
             raise HTTPException(status_code=400, detail="Interview session not found or expired.")
@@ -783,7 +801,9 @@ async def interview_answer(
             answer=answer, 
             resume_context=resume_context,
             profile_context=profile_text,
-            graph_context=graph_text
+            graph_context=graph_text,
+            topic=topic,
+            is_spoken=req.is_spoken
         )
         
         # Add to history
@@ -794,7 +814,8 @@ async def interview_answer(
             resume_context=resume_context, 
             history=history,
             profile_context=profile_text,
-            graph_context=graph_text
+            graph_context=graph_text,
+            topic=topic
         )
         history.append({"role": "assistant", "content": next_question})
         

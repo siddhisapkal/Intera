@@ -56,3 +56,6 @@ Thumbs.db
 *.log
 .vscode/
 .idea/
+*.sqlite3
+backend/data/
+**/__pycache__/

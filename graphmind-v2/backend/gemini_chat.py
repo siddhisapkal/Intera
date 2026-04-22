@@ -184,6 +184,7 @@ def transcribe_audio(audio_bytes: bytes) -> str:
         transcription = client.audio.transcriptions.create(
             model="whisper-large-v3",
             file=audio_file,
+            language="en"
         )
         return transcription.text
     except Exception as e:
@@ -196,12 +197,14 @@ def generate_interview_question(
     resume_context: str, 
     history: list[dict[str, str]] | None = None,
     profile_context: str = "",
-    graph_context: str = ""
+    graph_context: str = "",
+    topic: str = ""
 ) -> str:
-    """Generates the next interview question based on resume, history, and profile."""
+    """Generates the next interview question based on resume, history, profile, and topic."""
+    topic_context = f"\nTARGET TOPIC: {topic}\n" if topic else ""
     prompt = f"""
-You are an expert technical interviewer. Based on the candidate's resume, their strength/weakness profile, and their conversation history, ask ONE targeted, professional interview question.
-
+You are an expert technical interviewer. Based on the candidate's resume, their strength/weakness profile, their conversation history, and the specified topic, ask ONE targeted, professional interview question.
+{topic_context}
 RESUME CONTEXT:
 {resume_context}
 
@@ -219,6 +222,7 @@ Rules:
 - Do not repeat previous questions.
 - If the profile shows a weakness, consider a question to probe their growth in that area.
 - If the knowledge graph shows a specialized skill, consider a deep-dive question.
+- If a TARGET TOPIC is specified, focus the question heavily on that topic.
 - Focus on depth and actual behavior/technical proficiency.
 - Return ONLY the question text.
 
@@ -243,26 +247,64 @@ Question:"""
         return "Could you describe your most significant professional achievement?"
 
 
+def generate_resume_suggestions(*, resume_text: str) -> list[str]:
+    """Analyze resume text and provide improvement suggestions."""
+    prompt = f"""
+Analyze the following resume text and provide 3-5 specific, professional improvement suggestions.
+Focus on:
+- Missing sections or key skills.
+- Action verbs and impact-driven bullet points.
+- Layout or clarity improvements.
+- Professional summary effectiveness.
+
+RESUME TEXT:
+{resume_text}
+
+Return strict JSON only as a list of strings:
+["suggestion 1", "suggestion 2", ...]
+
+JSON:"""
+    try:
+        client = _get_client()
+        response = client.models.generate_content(
+            model=SIGNAL_MODEL,
+            contents=prompt,
+            config={"response_mime_type": "application/json"}
+        )
+        return json.loads(response.text or "[]")
+    except Exception:
+        return ["Add more metrics-driven impact statements.", "Consider adding a professional summary.", "Ensure your tech stack is clearly highlighted."]
+
+
 def evaluate_interview_answer(
     *, 
     question: str, 
     answer: str, 
     resume_context: str,
     profile_context: str = "",
-    graph_context: str = ""
+    graph_context: str = "",
+    topic: str = "",
+    is_spoken: bool = False
 ) -> dict[str, object]:
     """Provides feedback on an interview answer."""
+    topic_context = f"\nTARGET TOPIC: {topic}\n" if topic else ""
+    tone_instruction = "analyze the tone, clarity, and identify linguistic patterns like repetition." if is_spoken else "evaluate the structure and professional accuracy."
+    
     prompt = f"""
 Question asked: {question}
 Candidate's answer: {answer}
+{topic_context}
 Candidate's Resume: {resume_context}
 Profile context: {profile_context}
 Graph context: {graph_context}
 
-Evaluate the candidate's answer. Provide constructive feedback, a score out of 10, and identify strengths or gaps.
+Evaluate the candidate's answer. Provide constructive feedback, a score out of 10, and {tone_instruction}
 Return strict JSON with keys:
 "feedback": "...",
-"score": 8,
+"score": 0,
+"tone": "{'...' if is_spoken else 'Written'}",
+"clarity": "...",
+"linguistic_notes": { '["..."]' if is_spoken else '[]' },
 "strengths": ["..."],
 "gaps": ["..."],
 "suggestion": "..."
@@ -270,7 +312,9 @@ Return strict JSON with keys:
 Rules:
 - Be honest but encouraging.
 - Compare the answer against the professional context in the resume & profile.
-- suggestion should be a tip on how to improve the answer.
+- {'Explicitly check for word repetition, filler words (um, like, basically), and grammar.' if is_spoken else 'Explicitly check for technical accuracy, structure, and professional language.'}
+- Provide an accurate score (1-10) that reflects the technical depth and professional quality of the answer.
+- Suggestion should be a tip on how to improve the answer or delivery.
 
 JSON:"""
     try:
@@ -389,6 +433,7 @@ Reply format:
 - First paragraph: if the supplied memory is genuinely relevant, briefly connect the answer to that memory in a natural way.
 - Second paragraph: give the general explanation, guidance, or answer the user needs.
 - Keep it clean, warm, and direct. Do not sound robotic.
+- If live web findings are used, ALWAYS provide the source links or URLs from the web findings at the end of your response.
 """.strip()
     else:
         reply_style = """
@@ -396,6 +441,7 @@ Reply format:
 - Start by clearly saying that this question does not appear related to the relevant saved memory you found.
 - Then answer the question from general knowledge in a separate paragraph.
 - If live web findings are not already provided, end with one short line offering web search, for example: "If you want, I can search the web for this too."
+- If live web findings are used, ALWAYS provide the source links or URLs from the web findings at the end of your response.
 """.strip()
 
     prompt = f"""Answer using only the supplied memory and optional web findings.
@@ -517,6 +563,27 @@ Rules:
     }
 
 
+def analyze_message_tone(*, message: str) -> str:
+    """Analyzes the tone of a single user message."""
+    prompt = f"""
+Analyze the tone of this message. 
+Return a single word or short phrase (e.g., "Professional", "Casual", "Hesitant", "Confident", "Stressed", "Frustrated").
+Return ONLY the tone text.
+
+Message: {message}
+
+Tone:"""
+    try:
+        client = _get_client()
+        response = client.models.generate_content(
+            model=SIGNAL_MODEL,
+            contents=prompt,
+        )
+        return (response.text or "Neutral").strip()
+    except Exception:
+        return "Neutral"
+
+
 def classify_relation_with_llm(*, relation: str, entity_type: str = "") -> dict[str, object] | None:
     prompt = f"""
 Classify this relation into semantic retrieval metadata.
@@ -607,6 +674,8 @@ Examples:
 - "i am studying polity" -> STUDIES Polity
 - "trying to get better at writing" -> IMPROVING_IN Answer Writing
 - "i revise daily" -> HAS_HABIT Revision
+- "can you teach me regression" -> STUDIES Regression
+- "how to prepare for google" -> PREPARING_FOR Google
 
 Instructions:
 - Treat full message as one semantic unit
@@ -615,6 +684,7 @@ Instructions:
 - Subject is always User({user_id})
 - Object must be short and atomic
 - Preserve legitimate compound topic names such as course names, subject names, or standard phrases. Do not split a real topic just because it contains "and".
+- IMPORTANT: When a user asks you to teach them something, explain a topic, or prepare them for interviews, you MUST capture this as a durable fact (e.g. STUDIES, INTERESTED_IN, PREPARING_FOR). A learning intent is a durable fact!
 - When the message mentions a broad subject, a subtopic inside it, and an underlying prerequisite weakness, capture all of them if they are durable.
 - If the user says they struggle in subtopic X inside subject Y because of weakness Z, prefer:
   - a user fact for the broad subject if they are studying it
